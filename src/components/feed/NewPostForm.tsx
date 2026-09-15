@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { ImagePlus, X, Send } from "lucide-react";
+import { ImagePlus, X, Send, ImageOff } from "lucide-react";
 
 export default function NewPostForm() {
   const [content, setContent] = useState("");
@@ -19,14 +19,17 @@ export default function NewPostForm() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!content.trim()) return;
-    // Aqui vai a chamada à API Django futuramente
+    if (!content.trim() || !preview) return;
+    // Futuramente: chamada à API Django
     console.log({ content, preview });
     setContent("");
     removeImage();
   }
 
   const remaining = 280 - content.length;
+
+  // Condição de habilitação do botão
+  const canSubmit = content.trim().length > 0 && !!preview && remaining >= 0;
 
   return (
     <form
@@ -43,7 +46,7 @@ export default function NewPostForm() {
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="O que há de novo ?"
+          placeholder="O que está acontecendo? Compartilhe um momento conosco"
           maxLength={280}
           rows={3}
           className="flex-1 bg-transparent text-white placeholder-gray-500 text-sm resize-none outline-none leading-relaxed"
@@ -51,7 +54,7 @@ export default function NewPostForm() {
       </div>
 
       {/* Preview da imagem */}
-      {preview && (
+      {preview ? (
         <div className="relative rounded-xl overflow-hidden">
           <img
             src={preview}
@@ -66,12 +69,20 @@ export default function NewPostForm() {
             <X size={16} />
           </button>
         </div>
+      ) : (
+        /* Aviso de imagem obrigatória */
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-white/10 bg-white/2">
+          <ImageOff size={16} className="text-gray-600 shrink-0" />
+          <p className="text-gray-600 text-xs">
+            Uma imagem é obrigatória para publicar.
+          </p>
+        </div>
       )}
 
       {/* Divisor */}
       <div className="border-t border-white/5" />
 
-      {/* Rodapé: ações + contador + botão */}
+      {/* Rodapé */}
       <div className="flex items-center justify-between">
         {/* Botão de imagem */}
         <div className="flex items-center gap-3">
@@ -85,7 +96,11 @@ export default function NewPostForm() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="text-gray-500 hover:text-purple-400 transition"
+            className={`transition ${
+              preview
+                ? "text-purple-400"
+                : "text-gray-500 hover:text-purple-400"
+            }`}
             title="Adicionar imagem"
           >
             <ImagePlus size={20} />
@@ -94,7 +109,6 @@ export default function NewPostForm() {
 
         {/* Contador + Publicar */}
         <div className="flex items-center gap-4">
-          {/* Contador de caracteres */}
           <span
             className={`text-xs font-medium transition-colors ${
               remaining <= 20
@@ -107,10 +121,10 @@ export default function NewPostForm() {
             {remaining}
           </span>
 
-          {/* Botão publicar */}
           <button
             type="submit"
-            disabled={!content.trim() || remaining < 0}
+            disabled={!canSubmit}
+            title={!preview ? "Adicione uma imagem para publicar" : ""}
             className="flex items-center gap-2 px-5 py-2 rounded-full bg-linear-to-r from-purple-600 to-fuchsia-500 text-white text-sm font-semibold shadow-lg shadow-purple-500/30 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Send size={15} />

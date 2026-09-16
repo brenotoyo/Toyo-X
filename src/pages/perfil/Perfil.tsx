@@ -3,6 +3,7 @@ import EditProfileModal from "@/components/profile/EditProfileModal";
 import PostModal from "@/components/profile/PostModal";
 import { Grid2X2, Pencil } from "lucide-react";
 import { useState } from "react";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const mockPosts = [
   {
@@ -119,13 +120,14 @@ interface SelectedPost {
 }
 
 export default function Perfil() {
+  const user = useAuthStore((s) => s.user);
   const [showEdit, setShowEdit] = useState(false);
   const [selectedPost, setSelectedPost] = useState<SelectedPost | null>(null);
   const [profile, setProfile] = useState<ProfileData>({
-    username: "Username",
-    bio: "Cyber enthusiast. Tech lover. Exploring the future.",
-    avatar: "https://i.pravatar.cc/150?img=12",
-    banner: "",
+    username: user?.username ?? "",
+    bio: user?.bio ?? "",
+    avatar: user?.avatar ?? "",
+    banner: user?.banner ?? "",
   });
 
   return (

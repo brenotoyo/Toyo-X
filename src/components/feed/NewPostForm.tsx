@@ -1,7 +1,9 @@
 import { useState, useRef } from "react";
 import { ImagePlus, X, Send, ImageOff } from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function NewPostForm() {
+  const user = useAuthStore((s) => s.user);
   const [content, setContent] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -39,7 +41,7 @@ export default function NewPostForm() {
       {/* Avatar + Textarea */}
       <div className="flex gap-3">
         <img
-          src="https://i.pravatar.cc/150?img=12"
+          src={user?.avatar}
           alt="Meu avatar"
           className="w-10 h-10 rounded-full object-cover border-2 border-purple-500/50 shrink-0"
         />

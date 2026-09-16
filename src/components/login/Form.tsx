@@ -1,7 +1,34 @@
 import { useState } from "react";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useNavigate } from "react-router-dom";
 
 export default function FormLogin() {
   const [showPassord, setShowPassord] = useState(false);
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const navigate = useNavigate();
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    // Futuramente: chamar API Django
+    // const { user, token } = await api.post("/auth/login", { email, password });
+
+    // Mock temporário para testar o fluxo
+    setAuth(
+      {
+        id: 1,
+        username: "Username",
+        name: "User Name",
+        bio: "Cyber enthusiast.",
+        avatar: "https://i.pravatar.cc/150?img=12",
+        banner: "",
+      },
+      "mock-token-123",
+    );
+
+    navigate("/feed");
+  }
+
+  // ...resto do formulário com onSubmit={handleSubmit}
 
   return (
     <div className="w-full max-w-md rounded-2xl border border-white/20 bg-white/5 backdrop-blur-xl shadow-2xl p-8">
@@ -10,7 +37,7 @@ export default function FormLogin() {
         Toyo-<span className="text-purple-500">X</span>
       </h1>
 
-      <form className="flex flex-col gap-5">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Email */}
         <div className="flex flex-col gap-2">
           <label

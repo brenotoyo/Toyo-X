@@ -1,3 +1,5 @@
+import { useAuthStore } from "@/store/useAuthStore";
+import { useNavigate } from "react-router-dom";
 import {
   Home,
   Search,
@@ -9,80 +11,31 @@ import {
   Trash2,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "@/services/api";
 
-const initialNotifications = [
-  {
-    id: 1,
-    avatar: "https://i.pravatar.cc/150?img=1",
-    text: "AlexKnight curtiu seu post.",
-    time: "2min",
-  },
-  {
-    id: 2,
-    avatar: "https://i.pravatar.cc/150?img=5",
-    text: "LunaStar começou a te seguir.",
-    time: "10min",
-  },
-  {
-    id: 3,
-    avatar: "https://i.pravatar.cc/150?img=9",
-    text: "NeoGamer comentou no seu post.",
-    time: "30min",
-  },
-  {
-    id: 4,
-    avatar: "https://i.pravatar.cc/150?img=3",
-    text: "CyberJade curtiu seu comentário.",
-    time: "1h",
-  },
-  {
-    id: 5,
-    avatar: "https://i.pravatar.cc/150?img=7",
-    text: "SynthWave mencionou você em um post.",
-    time: "3h",
-  },
-];
+interface SearchUser {
+  id: number;
+  username: string;
+  avatar: string | null;
+  followers_count: number;
+  is_following: boolean;
+}
 
-// Mock de usuários — depois vem da API Django
-const mockUsers = [
-  {
-    id: 1,
-    avatar: "https://i.pravatar.cc/150?img=1",
-    username: "AlexKnight",
-    name: "Alex Knight",
-  },
-  {
-    id: 2,
-    avatar: "https://i.pravatar.cc/150?img=5",
-    username: "LunaStar",
-    name: "Luna Star",
-  },
-  {
-    id: 3,
-    avatar: "https://i.pravatar.cc/150?img=9",
-    username: "NeoGamer",
-    name: "Neo Gamer",
-  },
-  {
-    id: 4,
-    avatar: "https://i.pravatar.cc/150?img=3",
-    username: "CyberJade",
-    name: "Cyber Jade",
-  },
-  {
-    id: 5,
-    avatar: "https://i.pravatar.cc/150?img=7",
-    username: "SynthWave",
-    name: "Synth Wave",
-  },
-  {
-    id: 6,
-    avatar: "https://i.pravatar.cc/150?img=11",
-    username: "DarkNova",
-    name: "Dark Nova",
-  },
-];
+interface NotificationSender {
+  id: number;
+  username: string;
+  avatar: string | null;
+}
+
+interface Notification {
+  id: number;
+  sender: NotificationSender;
+  type: "like" | "comment" | "follow";
+  post: number | null;
+  is_read: boolean;
+  created_at: string;
+}
 
 const navItems = [
   { label: "Home", icon: Home, to: "/feed" },
@@ -91,32 +44,175 @@ const navItems = [
 
 type Panel = "main" | "notifications" | "search";
 
+function timeAgo(dateStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return `${diff}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}min`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
+
+function notificationText(type: Notification["type"]): string {
+  if (type === "like") return "curtiu seu post.";
+  if (type === "comment") return "comentou no seu post.";
+  return "começou a te seguir.";
+}
+
 export default function SideHome() {
   const [panel, setPanel] = useState<Panel>("main");
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchUser[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [followingIds, setFollowingIds] = useState<Set<number>>(new Set());
 
-  // Filtra usuários pelo que foi digitado
-  const results = query.trim()
-    ? mockUsers.filter(
-        (u) =>
-          u.username.toLowerCase().includes(query.toLowerCase()) ||
-          u.name.toLowerCase().includes(query.toLowerCase()),
-      )
-    : [];
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  // Busca notificações ao abrir o painel
+  useEffect(() => {
+    if (panel !== "notifications") return;
+
+    let cancelled = false;
+
+    async function loadNotifications() {
+      if (!cancelled) setLoadingNotifications(true);
+      try {
+        const { data } = await api.get("/notifications/");
+        if (!cancelled) setNotifications(data);
+      } catch (err) {
+        console.error("Erro ao buscar notificações:", err);
+      } finally {
+        if (!cancelled) setLoadingNotifications(false);
+      }
+    }
+
+    loadNotifications();
+    return () => {
+      cancelled = true;
+    };
+  }, [panel]);
+
+  // Marca como lidas ao abrir o painel
+  useEffect(() => {
+    if (panel !== "notifications") return;
+    if (unreadCount === 0) return;
+
+    async function markRead() {
+      try {
+        await api.post("/notifications/read/");
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      } catch (err) {
+        console.error("Erro ao marcar notificações:", err);
+      }
+    }
+
+    // Aguarda 1s antes de marcar como lidas
+    const timer = setTimeout(markRead, 1000);
+    return () => clearTimeout(timer);
+  }, [panel, unreadCount]);
+
+  // Busca notificações não lidas ao montar (para o badge)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUnread() {
+      try {
+        const { data } = await api.get("/notifications/");
+        if (!cancelled) setNotifications(data);
+      } catch (err) {
+        console.error("Erro ao buscar notificações:", err);
+      }
+    }
+
+    loadUnread();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Busca usuários na API quando query muda
+  useEffect(() => {
+    let cancelled = false;
+
+    async function search() {
+      if (!query.trim()) {
+        if (!cancelled) {
+          setResults([]);
+          setSearching(false);
+        }
+        return;
+      }
+
+      if (!cancelled) setSearching(true);
+
+      try {
+        const { data } = await api.get(
+          `/auth/search/?q=${encodeURIComponent(query)}`,
+        );
+        if (!cancelled) {
+          setResults(data);
+          const ids = new Set<number>(
+            data
+              .filter((u: SearchUser) => u.is_following)
+              .map((u: SearchUser) => u.id),
+          );
+          setFollowingIds(ids);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar usuários:", err);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }
+
+    search();
+    return () => {
+      cancelled = true;
+    };
+  }, [query]);
+
+  async function handleFollow(userId: number) {
+    try {
+      const { data } = await api.post(`/auth/${userId}/follow/`);
+      setFollowingIds((prev) => {
+        const next = new Set(prev);
+        if (data.following) next.add(userId);
+        else next.delete(userId);
+        return next;
+      });
+      setResults((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                followers_count: data.followers_count,
+                is_following: data.following,
+              }
+            : u,
+        ),
+      );
+    } catch (err) {
+      console.error("Erro ao seguir:", err);
+    }
+  }
 
   function clearNotifications() {
     setNotifications([]);
   }
 
   function handleLogout() {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
+    logout();
+    navigate("/");
   }
 
   function closePanel() {
     setPanel("main");
     setQuery("");
+    setResults([]);
   }
 
   return (
@@ -124,14 +220,12 @@ export default function SideHome() {
       {/* ── PAINEL PRINCIPAL ── */}
       {panel === "main" && (
         <>
-          {/* Logo */}
           <div className="mb-10 px-2">
             <span className="text-white text-2xl font-bold tracking-wide">
               Toyo-<span className="text-purple-500">X</span>
             </span>
           </div>
 
-          {/* Navegação */}
           <nav className="flex flex-col gap-2">
             {navItems.map(({ label, icon: Icon, to }) => (
               <NavLink
@@ -151,7 +245,6 @@ export default function SideHome() {
               </NavLink>
             ))}
 
-            {/* Pesquisar */}
             <button
               onClick={() => setPanel("search")}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-gray-400 hover:bg-white/5 hover:text-white text-left"
@@ -160,16 +253,15 @@ export default function SideHome() {
               Pesquisar
             </button>
 
-            {/* Notificações com badge */}
             <button
               onClick={() => setPanel("notifications")}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-gray-400 hover:bg-white/5 hover:text-white text-left"
             >
               <div className="relative">
                 <Bell size={20} />
-                {notifications.length > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold">
-                    {notifications.length}
+                    {unreadCount}
                   </span>
                 )}
               </div>
@@ -177,7 +269,6 @@ export default function SideHome() {
             </button>
           </nav>
 
-          {/* Logout no rodapé */}
           <div className="mt-auto">
             <button
               onClick={handleLogout}
@@ -193,7 +284,6 @@ export default function SideHome() {
       {/* ── PAINEL DE PESQUISA ── */}
       {panel === "search" && (
         <>
-          {/* Cabeçalho */}
           <div className="flex items-center justify-between mb-4 px-2">
             <span className="text-white font-semibold text-base">
               Pesquisar
@@ -206,7 +296,6 @@ export default function SideHome() {
             </button>
           </div>
 
-          {/* Input de busca */}
           <div className="relative mb-4">
             <Search
               size={15}
@@ -230,30 +319,46 @@ export default function SideHome() {
             )}
           </div>
 
-          {/* Resultados */}
           <div className="flex flex-col gap-2 overflow-y-auto flex-1 pr-1">
             {query.trim() === "" ? (
               <div className="flex flex-col items-center justify-center flex-1 gap-2 text-center">
                 <Search size={32} className="text-gray-700" />
                 <p className="text-gray-600 text-xs">Digite para buscar</p>
               </div>
+            ) : searching ? (
+              <p className="text-gray-600 text-xs text-center mt-4">
+                Buscando...
+              </p>
             ) : results.length > 0 ? (
               results.map((u) => (
                 <div
                   key={u.id}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition cursor-pointer"
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition"
                 >
                   <img
-                    src={u.avatar}
+                    src={u.avatar || "https://i.pravatar.cc/150?img=12"}
                     alt={u.username}
                     className="w-8 h-8 rounded-full object-cover shrink-0 border border-purple-500/40"
                   />
-                  <div className="flex flex-col">
-                    <span className="text-white text-xs font-semibold">
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="text-white text-xs font-semibold truncate">
                       {u.username}
                     </span>
-                    <span className="text-gray-500 text-[11px]">{u.name}</span>
+                    <span className="text-gray-500 text-[11px]">
+                      {u.followers_count} seguidores
+                    </span>
                   </div>
+                  <button
+                    onClick={() => handleFollow(u.id)}
+                    className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full transition
+                      ${
+                        followingIds.has(u.id)
+                          ? "bg-white/10 text-gray-400 hover:bg-red-500/20 hover:text-red-400"
+                          : "bg-purple-600/80 text-white hover:bg-purple-500"
+                      }`}
+                  >
+                    {followingIds.has(u.id) ? "Seguindo" : "Seguir"}
+                  </button>
                 </div>
               ))
             ) : (
@@ -265,7 +370,6 @@ export default function SideHome() {
             )}
           </div>
 
-          {/* Voltar */}
           <button
             onClick={closePanel}
             className="mt-auto flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition"
@@ -279,7 +383,6 @@ export default function SideHome() {
       {/* ── PAINEL DE NOTIFICAÇÕES ── */}
       {panel === "notifications" && (
         <>
-          {/* Cabeçalho */}
           <div className="flex items-center justify-between mb-6 px-2">
             <span className="text-white font-semibold text-base">
               Notificações
@@ -303,25 +406,32 @@ export default function SideHome() {
             </div>
           </div>
 
-          {/* Lista */}
           <div className="flex flex-col gap-3 overflow-y-auto flex-1 pr-1">
-            {notifications.length > 0 ? (
+            {loadingNotifications ? (
+              <p className="text-gray-600 text-xs text-center mt-4">
+                Carregando...
+              </p>
+            ) : notifications.length > 0 ? (
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className="flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 transition cursor-pointer"
+                  className={`flex items-start gap-3 p-3 rounded-xl transition cursor-pointer
+                    ${n.is_read ? "hover:bg-white/5" : "bg-purple-500/10 hover:bg-purple-500/15"}`}
                 >
                   <img
-                    src={n.avatar}
-                    alt="avatar"
+                    src={n.sender.avatar || "https://i.pravatar.cc/150?img=12"}
+                    alt={n.sender.username}
                     className="w-8 h-8 rounded-full object-cover shrink-0 border border-purple-500/40"
                   />
                   <div className="flex flex-col gap-1">
                     <p className="text-gray-300 text-xs leading-snug">
-                      {n.text}
+                      <span className="text-white font-semibold">
+                        {n.sender.username}
+                      </span>{" "}
+                      {notificationText(n.type)}
                     </p>
                     <span className="text-gray-600 text-[11px]">
-                      {n.time} atrás
+                      {timeAgo(n.created_at)} atrás
                     </span>
                   </div>
                 </div>
@@ -334,7 +444,6 @@ export default function SideHome() {
             )}
           </div>
 
-          {/* Voltar */}
           <button
             onClick={closePanel}
             className="mt-auto flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition"

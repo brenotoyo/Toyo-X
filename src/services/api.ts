@@ -1,13 +1,10 @@
 import axios from "axios";
 
-export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+const api = axios.create({
+  baseURL: "http://127.0.0.1:8000/api",
 });
 
-// Interceptor para injetar o token JWT automaticamente se existir
+// Injeta o token JWT em toda requisição automaticamente
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -15,3 +12,17 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Se o token expirar, redireciona para login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/";
+    }
+    return Promise.reject(error);
+  },
+);
+
+export default api;

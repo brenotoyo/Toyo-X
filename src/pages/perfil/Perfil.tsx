@@ -1,108 +1,11 @@
+import { useEffect, useState } from "react";
 import SideHome from "@/components/SideHome";
 import EditProfileModal from "@/components/profile/EditProfileModal";
 import PostModal from "@/components/profile/PostModal";
-import { Grid2X2, Pencil } from "lucide-react";
-import { useState } from "react";
+import FollowListModal from "@/components/profile/FollowListModal";
+import { Grid2X2, Pencil, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
-
-const mockPosts = [
-  {
-    id: 1,
-    image: "https://picsum.photos/seed/cyber1/400/400",
-    text: "A cidade nunca dorme. Luzes neon refletem no asfalto molhado.",
-    likes: 1200,
-    comments: 83,
-    shares: 40,
-  },
-  {
-    id: 2,
-    image: "https://picsum.photos/seed/cyber2/400/400",
-    text: "Identidade oculta, presença inegável.",
-    likes: 980,
-    comments: 61,
-    shares: 25,
-  },
-  {
-    id: 3,
-    image: "https://picsum.photos/seed/cyber3/400/400",
-    text: "Velocidade é liberdade.",
-    likes: 760,
-    comments: 44,
-    shares: 18,
-  },
-  {
-    id: 4,
-    image: "https://picsum.photos/seed/cyber4/400/400",
-    text: "O futuro pertence a quem o constrói.",
-    likes: 1540,
-    comments: 102,
-    shares: 67,
-  },
-  {
-    id: 5,
-    image: "https://picsum.photos/seed/cyber5/400/400",
-    text: "Além do horizonte, o desconhecido aguarda.",
-    likes: 890,
-    comments: 57,
-    shares: 31,
-  },
-  {
-    id: 6,
-    image: "https://picsum.photos/seed/cyber6/400/400",
-    text: "Realidade aumentada. Experiência ampliada.",
-    likes: 430,
-    comments: 29,
-    shares: 12,
-  },
-  {
-    id: 7,
-    image: "https://picsum.photos/seed/cyber7/400/400",
-    text: "Entre circuitos e sombras, a arte emerge.",
-    likes: 670,
-    comments: 38,
-    shares: 20,
-  },
-  {
-    id: 8,
-    image: "https://picsum.photos/seed/cyber8/400/400",
-    text: "A escuridão tem sua própria beleza.",
-    likes: 1100,
-    comments: 74,
-    shares: 48,
-  },
-  {
-    id: 9,
-    image: "https://picsum.photos/seed/cyber9/400/400",
-    text: "Conexões invisíveis movem o mundo.",
-    likes: 520,
-    comments: 33,
-    shares: 15,
-  },
-  {
-    id: 10,
-    image: "https://picsum.photos/seed/cyber10/400/400",
-    text: "Tecnologia e natureza coexistem.",
-    likes: 340,
-    comments: 21,
-    shares: 9,
-  },
-  {
-    id: 11,
-    image: "https://picsum.photos/seed/cyber11/400/400",
-    text: "Cada pixel conta uma história.",
-    likes: 780,
-    comments: 50,
-    shares: 27,
-  },
-  {
-    id: 12,
-    image: "https://picsum.photos/seed/cyber12/400/400",
-    text: "O olho que tudo vê, tudo registra.",
-    likes: 960,
-    comments: 65,
-    shares: 35,
-  },
-];
+import api from "@/services/api";
 
 interface ProfileData {
   username: string;
@@ -111,24 +14,105 @@ interface ProfileData {
   banner: string;
 }
 
+interface Post {
+  id: number;
+  image: string;
+  content: string;
+  likes_count: number;
+  comments_count: number;
+}
+
 interface SelectedPost {
+  postId: number;
   image: string;
   text: string;
   likes: number;
   comments: number;
   shares: number;
+  likedByMe: boolean;
 }
+
+type FollowModal = "followers" | "following" | null;
 
 export default function Perfil() {
   const user = useAuthStore((s) => s.user);
-  const [showEdit, setShowEdit] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<SelectedPost | null>(null);
+
   const [profile, setProfile] = useState<ProfileData>({
     username: user?.username ?? "",
     bio: user?.bio ?? "",
     avatar: user?.avatar ?? "",
     banner: user?.banner ?? "",
   });
+
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [showEdit, setShowEdit] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<SelectedPost | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [followModal, setFollowModal] = useState<FollowModal>(null);
+  const [followersCount, setFollowersCount] = useState(
+    user?.followers_count ?? 0,
+  );
+
+  // Busca dados do perfil
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      try {
+        const { data } = await api.get("/auth/me/");
+        if (!cancelled) {
+          setProfile({
+            username: data.username ?? "",
+            bio: data.bio ?? "",
+            avatar: data.avatar ?? "",
+            banner: data.banner ?? "",
+          });
+          setFollowersCount(data.followers_count ?? 0);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar perfil:", err);
+      }
+    }
+
+    loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Busca posts do usuário
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPosts() {
+      try {
+        const { data } = await api.get("/posts/mine/");
+        if (!cancelled) setPosts(data);
+      } catch (err) {
+        console.error("Erro ao buscar posts:", err);
+      } finally {
+        if (!cancelled) setLoadingPosts(false);
+      }
+    }
+
+    loadPosts();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleDeletePost(postId: number) {
+    setDeletingId(postId);
+    try {
+      await api.delete(`/posts/${postId}/`);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+    } catch (err) {
+      console.error("Erro ao deletar post:", err);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#0d0d1a] flex">
@@ -153,7 +137,7 @@ export default function Perfil() {
             <div className="flex items-end justify-between">
               <div className="-mt-16 shrink-0">
                 <img
-                  src={profile.avatar}
+                  src={profile.avatar || "https://i.pravatar.cc/150?img=12"}
                   alt="avatar"
                   className="w-32 h-32 rounded-full object-cover border-4 border-[#0d0d1a] shadow-xl"
                 />
@@ -172,13 +156,33 @@ export default function Perfil() {
                 {profile.username}
               </h1>
               <p className="text-gray-400 text-sm">{profile.bio}</p>
+
+              {/* ── Contagens clicáveis ── */}
               <div className="flex items-center gap-6 mt-2">
-                <div className="flex items-center gap-1">
-                  <span className="text-white font-bold text-sm">2.3K</span>
+                <button
+                  onClick={() => setFollowModal("followers")}
+                  className="flex items-center gap-1 hover:opacity-80 transition"
+                >
+                  <span className="text-white font-bold text-sm">
+                    {followersCount}
+                  </span>
                   <span className="text-gray-500 text-sm">Seguidores</span>
-                </div>
+                </button>
+
+                <button
+                  onClick={() => setFollowModal("following")}
+                  className="flex items-center gap-1 hover:opacity-80 transition"
+                >
+                  <span className="text-white font-bold text-sm">
+                    {user?.following_count ?? 0}
+                  </span>
+                  <span className="text-gray-500 text-sm">Seguindo</span>
+                </button>
+
                 <div className="flex items-center gap-1">
-                  <span className="text-white font-bold text-sm">485</span>
+                  <span className="text-white font-bold text-sm">
+                    {posts.length}
+                  </span>
                   <span className="text-gray-500 text-sm">Posts</span>
                 </div>
               </div>
@@ -195,21 +199,47 @@ export default function Perfil() {
         </div>
 
         {/* ── GRID DE POSTS ── */}
-        <div className="grid grid-cols-5 gap-1 p-1">
-          {mockPosts.map((post) => (
-            <div
-              key={post.id}
-              onClick={() => setSelectedPost(post)}
-              className="aspect-square overflow-hidden cursor-pointer group relative"
-            >
-              <img
-                src={post.image}
-                alt={`post-${post.id}`}
-                className="w-full h-full object-cover group-hover:scale-105 group-hover:brightness-75 transition-all duration-300"
-              />
-            </div>
-          ))}
-        </div>
+        {loadingPosts ? (
+          <p className="text-gray-500 text-sm p-6">Carregando posts...</p>
+        ) : posts.length === 0 ? (
+          <p className="text-gray-500 text-sm p-6">Nenhum post ainda.</p>
+        ) : (
+          <div className="grid grid-cols-5 gap-1 p-1">
+            {posts.map((post) => (
+              <div
+                key={post.id}
+                className="aspect-square overflow-hidden cursor-pointer group relative"
+              >
+                <img
+                  src={post.image}
+                  alt={`post-${post.id}`}
+                  onClick={() =>
+                    setSelectedPost({
+                      postId: post.id,
+                      image: post.image,
+                      text: post.content,
+                      likes: post.likes_count,
+                      comments: post.comments_count,
+                      shares: 0,
+                      likedByMe: false,
+                    })
+                  }
+                  className="w-full h-full object-cover group-hover:scale-105 group-hover:brightness-75 transition-all duration-300"
+                />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeletePost(post.id);
+                  }}
+                  disabled={deletingId === post.id}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 text-red-400 opacity-0 group-hover:opacity-100 transition hover:bg-red-500/30 disabled:opacity-50"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── MODAL DE EDIÇÃO ── */}
@@ -224,14 +254,24 @@ export default function Perfil() {
       {/* ── MODAL DO POST ── */}
       {selectedPost && (
         <PostModal
+          postId={selectedPost.postId}
           image={selectedPost.image}
           text={selectedPost.text}
           username={profile.username}
-          avatar={profile.avatar}
+          avatar={profile.avatar || "https://i.pravatar.cc/150?img=12"}
           likes={selectedPost.likes}
           comments={selectedPost.comments}
           shares={selectedPost.shares}
+          likedByMe={selectedPost.likedByMe}
           onClose={() => setSelectedPost(null)}
+        />
+      )}
+
+      {/* ── MODAL SEGUIDORES/SEGUINDO ── */}
+      {followModal && (
+        <FollowListModal
+          type={followModal}
+          onClose={() => setFollowModal(null)}
         />
       )}
     </div>

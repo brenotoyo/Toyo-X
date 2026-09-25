@@ -1,37 +1,60 @@
 import { useState, useRef } from "react";
 import { ImagePlus, X, Send, ImageOff } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
+import api from "@/services/api";
 
-export default function NewPostForm() {
+interface NewPostFormProps {
+  onPostCreated?: () => void;
+}
+
+export default function NewPostForm({ onPostCreated }: NewPostFormProps) {
   const user = useAuthStore((s) => s.user);
   const [content, setContent] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPreview(URL.createObjectURL(file));
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    setFile(selected);
+    setPreview(URL.createObjectURL(selected));
   }
 
   function removeImage() {
     setPreview(null);
+    setFile(null);
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!content.trim() || !preview) return;
-    // Futuramente: chamada à API Django
-    console.log({ content, preview });
-    setContent("");
-    removeImage();
+    if (!content.trim() || !file) return;
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("content", content);
+      formData.append("image", file);
+
+      await api.post("/posts/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setContent("");
+      removeImage();
+      onPostCreated?.(); // atualiza o feed
+    } catch (err) {
+      console.error("Erro ao publicar:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const remaining = 280 - content.length;
-
-  // Condição de habilitação do botão
-  const canSubmit = content.trim().length > 0 && !!preview && remaining >= 0;
+  const canSubmit =
+    content.trim().length > 0 && !!file && remaining >= 0 && !loading;
 
   return (
     <form
@@ -41,8 +64,8 @@ export default function NewPostForm() {
       {/* Avatar + Textarea */}
       <div className="flex gap-3">
         <img
-          src={user?.avatar}
-          alt="Meu avatar"
+          src={user?.avatar ?? "https://i.pravatar.cc/150?img=12"}
+          alt="avatar"
           className="w-10 h-10 rounded-full object-cover border-2 border-purple-500/50 shrink-0"
         />
         <textarea
@@ -72,7 +95,6 @@ export default function NewPostForm() {
           </button>
         </div>
       ) : (
-        /* Aviso de imagem obrigatória */
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-white/10 bg-white/2">
           <ImageOff size={16} className="text-gray-600 shrink-0" />
           <p className="text-gray-600 text-xs">
@@ -81,12 +103,10 @@ export default function NewPostForm() {
         </div>
       )}
 
-      {/* Divisor */}
       <div className="border-t border-white/5" />
 
       {/* Rodapé */}
       <div className="flex items-center justify-between">
-        {/* Botão de imagem */}
         <div className="flex items-center gap-3">
           <input
             ref={fileRef}
@@ -98,18 +118,13 @@ export default function NewPostForm() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className={`transition ${
-              preview
-                ? "text-purple-400"
-                : "text-gray-500 hover:text-purple-400"
-            }`}
+            className={`transition ${preview ? "text-purple-400" : "text-gray-500 hover:text-purple-400"}`}
             title="Adicionar imagem"
           >
             <ImagePlus size={20} />
           </button>
         </div>
 
-        {/* Contador + Publicar */}
         <div className="flex items-center gap-4">
           <span
             className={`text-xs font-medium transition-colors ${
@@ -126,11 +141,11 @@ export default function NewPostForm() {
           <button
             type="submit"
             disabled={!canSubmit}
-            title={!preview ? "Adicione uma imagem para publicar" : ""}
+            title={!file ? "Adicione uma imagem para publicar" : ""}
             className="flex items-center gap-2 px-5 py-2 rounded-full bg-linear-to-r from-purple-600 to-fuchsia-500 text-white text-sm font-semibold shadow-lg shadow-purple-500/30 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Send size={15} />
-            Publicar
+            {loading ? "Publicando..." : "Publicar"}
           </button>
         </div>
       </div>

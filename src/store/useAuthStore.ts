@@ -7,6 +7,8 @@ interface User {
   bio: string;
   avatar: string;
   banner: string;
+  followers_count: number;
+  following_count: number;
 }
 
 interface AuthStore {

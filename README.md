@@ -1,75 +1,105 @@
-# React + TypeScript + Vite
+Toyo-X — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Rede social moderna construída com React, Vite e TypeScript.
 
-Currently, two official plugins are available:
+📌 Sobre o projeto
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+O Toyo-X é uma rede social com feed de posts, perfis de usuário, sistema de seguidores, curtidas, comentários e notificações em tempo real.
 
-## React Compiler
+✨ Funcionalidades
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+🔐 Autenticação com JWT (login, registro, persistência após refresh)
 
-## Expanding the ESLint configuration
+📝 Criação de posts com imagem obrigatória
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+❤️ Curtidas e 💬 comentários nos posts
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+👥 Seguir e deixar de seguir usuários
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+👤 Perfil com avatar, banner e bio editáveis
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+🔔 Notificações de curtidas, comentários e novos seguidores
 
-```
+🔍 Busca de usuários
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+🔒 Alteração de senha
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+🛠️ Tecnologias
+Tecnologia Uso
+React 18 Interface
+TypeScript Tipagem estática
+Vite Build e dev server
+Tailwind CSS Estilização
+Zustand Gerenciamento de estado
+Axios Requisições HTTP
+React Router Navegação
+Lucide React Ícones
+🚀 Rodando localmente
+Pré-requisitos
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Node.js 18+
 
-```
+Backend do Toyo-X rodando (ver README do backend)
+
+Instalação
+
+# Clone o repositório
+
+git clone https://github.com/brenotoyo/Toyo-X.git
+cd Toyo-X
+
+# Instale as dependências
+
+npm install
+
+# Configure as variáveis de ambiente
+
+cp .env.example .env
+
+Variáveis de ambiente
+
+Crie um arquivo .env na raiz do projeto:
+
+VITE_API_URL=http://127.0.0.1:8000/api
+
+Inicie o servidor de desenvolvimento
+npm run dev
+
+Acesse: http://localhost:5173
+
+📁 Estrutura do projeto
+src/
+├── components/ # Componentes reutilizáveis
+│ ├── feed/ # Feed e cards de posts
+│ ├── profile/ # Perfil e modal de edição
+│ ├── layout/ # Sidebar, header
+│ └── ui/ # Componentes genéricos
+├── pages/ # Páginas da aplicação
+│ ├── Home.tsx # Feed principal
+│ ├── Perfil.tsx # Página de perfil
+│ └── ...
+├── services/
+│ └── api.ts # Instância do Axios configurada
+├── store/
+│ └── useAuthStore.ts # Estado de autenticação (Zustand)
+└── main.tsx
+
+🌐 Deploy
+
+O frontend está deployado na Vercel.
+
+Variável de ambiente no Vercel
+Variável Valor
+VITE_API_URL https://seu-backend.up.railway.app/api
+Arquivo vercel.json (necessário para SPA)
+{
+"rewrites": [
+{ "source": "/(.*)", "destination": "/index.html" }
+]
+}
+
+🔗 Links
+
+🌐 Site em produção
+
+🔧 Repositório do Backend

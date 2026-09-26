@@ -1,6 +1,6 @@
-Toyo-X — Frontend
+# Toyo-X — Frontend
 
-Rede social moderna construída com React, Vite e TypeScript.
+## Rede social moderna construída com React, Vite e TypeScript.
 
 📌 Sobre o projeto
 
